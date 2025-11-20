@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  literacyLevel LiteracyLevel
+  primaryGoal   PrimaryGoal
+  createdAt     DateTime       @default(now())
+  progress      UserProgress[]
+  quizResponses QuizResponse[]
+}
+
+model UserProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  moduleId    String
+  module      Module   @relation(fields: [moduleId], references: [id])
+  completed   Boolean  @default(false)
+  quizScore   Int?
+  completedAt DateTime @default(now())
+
+  @@unique([userId, moduleId])
+}
+
+model QuizResponse {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  moduleId    String
+  answers     Json
+  score       Int
+  submittedAt DateTime @default(now())
+}
+
+enum LiteracyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum PrimaryGoal {
+  LEARNING
+  INVESTING
+}
+
+model LearningPath {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  level       LiteracyLevel
+  modules     Module[]
+}
+
+model Module {
+  id             String         @id @default(uuid())
+  pathId         String
+  path           LearningPath   @relation(fields: [pathId], references: [id])
+  title          String
+  content        String
+  videoUrl       String?
+  order          Int
+  quizQuestions  Json
+  userProgress   UserProgress[]
+}
