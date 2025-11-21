@@ -73,6 +73,7 @@ export const submitQuiz = async (req: AuthRequest, res: Response) => {
         });
 
         const score = Math.round((correctAnswers / quizQuestions.length) * 100);
+        const passed = score >= 80; // 80% pass mark
 
         // Save quiz response
         const quizResponse = await prisma.quizResponse.create({
@@ -84,7 +85,7 @@ export const submitQuiz = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        // Update or create user progress
+        // Update or create user progress - only mark as completed if passed
         await prisma.userProgress.upsert({
             where: {
                 userId_moduleId: {
@@ -93,14 +94,14 @@ export const submitQuiz = async (req: AuthRequest, res: Response) => {
                 },
             },
             update: {
-                completed: true,
+                completed: passed,
                 quizScore: score,
-                completedAt: new Date(),
+                completedAt: passed ? new Date() : undefined,
             },
             create: {
                 userId,
                 moduleId,
-                completed: true,
+                completed: passed,
                 quizScore: score,
             },
         });
@@ -109,7 +110,7 @@ export const submitQuiz = async (req: AuthRequest, res: Response) => {
             score,
             correctAnswers,
             totalQuestions: quizQuestions.length,
-            passed: score >= 70,
+            passed,
             quizResponseId: quizResponse.id,
         });
     } catch (error) {

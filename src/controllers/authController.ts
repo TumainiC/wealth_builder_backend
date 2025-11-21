@@ -2,12 +2,13 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma';
+import { io } from '../server';
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, literacyLevel, primaryGoal } = req.body;
+        const { email, password, username, literacyLevel, primaryGoal } = req.body;
 
-        if (!email || !password || !literacyLevel || !primaryGoal) {
+        if (!email || !password || !username || !literacyLevel || !primaryGoal) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
@@ -22,6 +23,7 @@ export const register = async (req: Request, res: Response) => {
         const user = await prisma.user.create({
             data: {
                 email,
+                username,
                 passwordHash,
                 literacyLevel,
                 primaryGoal,
@@ -32,7 +34,13 @@ export const register = async (req: Request, res: Response) => {
             expiresIn: '1d',
         });
 
-        res.status(201).json({ token, user: { id: user.id, email: user.email, literacyLevel: user.literacyLevel, primaryGoal: user.primaryGoal } });
+        io.emit('auth_event', {
+            type: 'REGISTER_SUCCESS',
+            message: `New user registered: ${username}`,
+            timestamp: new Date()
+        });
+
+        res.status(201).json({ token, user: { id: user.id, email: user.email, username: user.username, literacyLevel: user.literacyLevel, primaryGoal: user.primaryGoal } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -61,7 +69,13 @@ export const login = async (req: Request, res: Response) => {
             expiresIn: '1d',
         });
 
-        res.json({ token, user: { id: user.id, email: user.email, literacyLevel: user.literacyLevel, primaryGoal: user.primaryGoal } });
+        io.emit('auth_event', {
+            type: 'LOGIN_SUCCESS',
+            message: `User logged in: ${user.username}`,
+            timestamp: new Date()
+        });
+
+        res.json({ token, user: { id: user.id, email: user.email, username: user.username, literacyLevel: user.literacyLevel, primaryGoal: user.primaryGoal } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

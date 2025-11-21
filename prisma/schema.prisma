@@ -14,19 +14,20 @@ model User {
   literacyLevel LiteracyLevel
   primaryGoal   PrimaryGoal
   createdAt     DateTime       @default(now())
-  progress      UserProgress[]
+  username      String         @default("Learner")
   quizResponses QuizResponse[]
+  progress      UserProgress[]
 }
 
 model UserProgress {
   id          String   @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
   moduleId    String
-  module      Module   @relation(fields: [moduleId], references: [id])
   completed   Boolean  @default(false)
   quizScore   Int?
   completedAt DateTime @default(now())
+  module      Module   @relation(fields: [moduleId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, moduleId])
 }
@@ -34,11 +35,31 @@ model UserProgress {
 model QuizResponse {
   id          String   @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
   moduleId    String
   answers     Json
   score       Int
   submittedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model LearningPath {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  level       LiteracyLevel
+  modules     Module[]
+}
+
+model Module {
+  id            String         @id @default(uuid())
+  pathId        String
+  title         String
+  content       String
+  videoUrl      String?
+  order         Int
+  quizQuestions Json
+  path          LearningPath   @relation(fields: [pathId], references: [id])
+  userProgress  UserProgress[]
 }
 
 enum LiteracyLevel {
@@ -50,24 +71,4 @@ enum LiteracyLevel {
 enum PrimaryGoal {
   LEARNING
   INVESTING
-}
-
-model LearningPath {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  level       LiteracyLevel
-  modules     Module[]
-}
-
-model Module {
-  id             String         @id @default(uuid())
-  pathId         String
-  path           LearningPath   @relation(fields: [pathId], references: [id])
-  title          String
-  content        String
-  videoUrl       String?
-  order          Int
-  quizQuestions  Json
-  userProgress   UserProgress[]
 }
