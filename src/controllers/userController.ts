@@ -132,19 +132,67 @@ export const getUserProgress = async (req: AuthRequest, res: Response) => {
         const completedModules = progress.filter(p => p.completed).length;
         const completionPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
 
+
         const averageQuizScore = quizResponses.length > 0
             ? Math.round(quizResponses.reduce((sum, q) => sum + q.score, 0) / quizResponses.length)
             : 0;
 
+        // Calculate streak days (consecutive days with activity)
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { createdAt: true }
+        });
+
+        let streakDays = 0;
+        if (progress.length > 0 || quizResponses.length > 0) {
+            // Get all activity dates (progress and quiz responses)
+            const activityDates = [
+                ...progress.map(p => p.completedAt),
+                ...quizResponses.map(q => q.submittedAt)
+            ].sort((a, b) => b.getTime() - a.getTime()); // Sort descending
+
+            if (activityDates.length > 0) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const mostRecentActivity = new Date(activityDates[0]);
+                mostRecentActivity.setHours(0, 0, 0, 0);
+
+                // Check if user was active today or yesterday
+                const daysDiff = Math.floor((today.getTime() - mostRecentActivity.getTime()) / (1000 * 60 * 60 * 24));
+
+                if (daysDiff <= 1) {
+                    // Count consecutive days with activity
+                    streakDays = 1;
+                    let currentDate = new Date(mostRecentActivity);
+
+                    for (let i = 1; i < activityDates.length; i++) {
+                        const activityDate = new Date(activityDates[i]);
+                        activityDate.setHours(0, 0, 0, 0);
+
+                        const expectedPrevDay = new Date(currentDate);
+                        expectedPrevDay.setDate(expectedPrevDay.getDate() - 1);
+
+                        if (activityDate.getTime() === expectedPrevDay.getTime()) {
+                            streakDays++;
+                            currentDate = activityDate;
+                        } else if (activityDate.getTime() < expectedPrevDay.getTime()) {
+                            // Gap found, stop counting
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         res.json({
             progress,
             quizResponses,
-            statistics: {
-                totalModules,
-                completedModules,
-                completionPercentage,
-                averageQuizScore,
-            },
+            completedModules,
+            totalQuizzesTaken: quizResponses.length,
+            averageScore: averageQuizScore,
+            streakDays,
+            overallProgress: completionPercentage,
         });
     } catch (error) {
         console.error(error);
